@@ -51,6 +51,7 @@ import io.legado.app.utils.startActivity
 import io.legado.app.utils.visible
 import splitties.views.onClick
 import splitties.views.onLongClick
+import java.util.LinkedList
 
 /**
  * 阅读界面菜单
@@ -153,6 +154,15 @@ class ReadMenu @JvmOverloads constructor(
 
         override fun onAnimationRepeat(animation: Animation) = Unit
     }
+
+    private data class ProgressEvent(val value: Int, val time: Long)
+    private val progressQueue: LinkedList<ProgressEvent> = LinkedList(
+        listOf(
+            ProgressEvent(-1, 0L),
+            ProgressEvent(-1, 0L),
+            ProgressEvent(-1, 0L)
+        )
+    )
 
     init {
         initView()
@@ -385,6 +395,7 @@ class ReadMenu @JvmOverloads constructor(
 
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
+                    checkProgressChange(progress)
                     setScreenBrightness(progress.toFloat())
                 }
             }
@@ -494,6 +505,34 @@ class ReadMenu @JvmOverloads constructor(
         }
     }
 
+    fun checkProgressChange(currentProgress: Int) {
+        val max = 255
+
+        if (currentProgress == 0 || currentProgress == max) {
+            val lastEvent = progressQueue.peekLast()
+            if (lastEvent != null && lastEvent.value != currentProgress) {
+                progressQueue.removeFirst()
+                progressQueue.addLast(ProgressEvent(currentProgress, System.currentTimeMillis()))
+
+                if (currentProgress == max) {
+                    if (progressQueue.size == 3) {
+                        val event1 = progressQueue[0]
+                        val event2 = progressQueue[1]
+                        val event3 = progressQueue[2]
+                        if (event1.value == max && event2.value == 0 && event3.value == max) {
+                            if (event3.time - event1.time <= 5000) {
+                                runMenuOut {
+                                    callBack.openChatActivity()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
     private fun initAnimation() {
         menuTopIn.setAnimationListener(menuInListener)
         menuTopOut.setAnimationListener(menuOutListener)
@@ -585,6 +624,7 @@ class ReadMenu @JvmOverloads constructor(
         fun skipToChapter(index: Int)
         fun onMenuShow()
         fun onMenuHide()
+        fun openChatActivity()
     }
 
 }

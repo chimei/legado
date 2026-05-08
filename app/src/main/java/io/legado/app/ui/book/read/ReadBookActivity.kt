@@ -95,6 +95,7 @@ import io.legado.app.ui.browser.WebViewActivity
 import io.legado.app.ui.dict.DictDialog
 import io.legado.app.ui.file.HandleFileContract
 import io.legado.app.ui.login.SourceLoginActivity
+import io.legado.app.ui.mylife.ChatActivity
 import io.legado.app.ui.replace.ReplaceRuleActivity
 import io.legado.app.ui.replace.edit.ReplaceEditActivity
 import io.legado.app.ui.widget.PopupAction
@@ -1193,6 +1194,11 @@ class ReadBookActivity : BaseReadBookActivity(),
                 }
             }
         }
+    }
+
+    override fun openChatActivity() {
+        val intent = Intent(this@ReadBookActivity, ChatActivity::class.java)
+        startActivity(intent)
     }
 
     /**
