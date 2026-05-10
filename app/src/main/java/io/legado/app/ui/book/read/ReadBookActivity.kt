@@ -1,11 +1,17 @@
 package io.legado.app.ui.book.read
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
+import android.net.http.SslError
+import android.os.Build
 import android.os.Bundle
 import android.os.Looper
+import android.provider.Settings
+import android.util.Log
 import android.view.Gravity
 import android.view.InputDevice
 import android.view.KeyEvent
@@ -13,6 +19,12 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
+import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityManager
+import android.webkit.SslErrorHandler
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -95,7 +107,6 @@ import io.legado.app.ui.browser.WebViewActivity
 import io.legado.app.ui.dict.DictDialog
 import io.legado.app.ui.file.HandleFileContract
 import io.legado.app.ui.login.SourceLoginActivity
-import io.legado.app.ui.mylife.ChatActivity
 import io.legado.app.ui.replace.ReplaceRuleActivity
 import io.legado.app.ui.replace.edit.ReplaceEditActivity
 import io.legado.app.ui.widget.PopupAction
@@ -135,6 +146,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.core.view.isVisible
+import io.legado.app.ui.mylife.MyAccessibilityService
 
 /**
  * 阅读界面
@@ -291,6 +304,30 @@ class ReadBookActivity : BaseReadBookActivity(),
             }
             finish()
         }
+
+        binding.chatWebViewContainer.invisible()
+        binding.chatButtonsContainer.invisible()
+        binding.btnTriggerAccessibility.setOnClickListener {
+            Log.d("aaaaaaaaaa","isAccessibilityServiceEnabled:${isAccessibilityServiceEnabled()}")
+            if (!isAccessibilityServiceEnabled()) {
+                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                startActivity(intent)
+            }
+        }
+        binding.btnAutoInput.setOnClickListener {
+            if (isAccessibilityServiceEnabled() && binding.chatWebView.isVisible) {
+                AUTO_INPUT_AMD = (AUTO_INPUT_AMD + 1) % 3
+                Log.d("aaaaaaaaaa","AUTO_INPUT_AMD:${AUTO_INPUT_AMD}")
+            }
+        }
+        binding.btnTriggerWebview.setOnClickListener {
+            if (binding.chatWebView.isVisible) {
+                hideChat()
+            } else {
+                openChatActivity()
+            }
+        }
+        initChatWebView()
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
@@ -1197,8 +1234,78 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     override fun openChatActivity() {
-        val intent = Intent(this@ReadBookActivity, ChatActivity::class.java)
-        startActivity(intent)
+        binding.chatWebViewContainer.visible()
+        binding.chatButtonsContainer.visible()
+
+        binding.readView.invisible()
+        binding.readMenu.invisible()
+        binding.searchMenu.invisible()
+        binding.cursorLeft.invisible()
+        binding.cursorRight.invisible()
+        binding.textMenuPosition.invisible()
+        binding.navigationBar.invisible()
+                
+        // 显示状态栏
+        upSystemUiVisibility(isInMultiWindow = false, toolBarHide = false)
+        // 获取准确的状态栏高度并设置
+        val statusBarHeight = resources.getDimensionPixelSize(
+            resources.getIdentifier("status_bar_height", "dimen", "android")
+        )
+        binding.chatWebViewContainer.setPadding(0, statusBarHeight, 0, 0)
+        binding.chatButtonsContainer.setPadding(10, statusBarHeight + 10, 10, 10)
+    }
+
+    fun hideChat() {
+        binding.chatWebViewContainer.invisible()
+        binding.chatButtonsContainer.invisible()
+        binding.readView.visible()
+        AUTO_INPUT_AMD = 0
+    }
+    
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun initChatWebView() {
+        val webSettings = binding.chatWebView.settings
+        webSettings.javaScriptEnabled = true
+        webSettings.domStorageEnabled = true
+        webSettings.cacheMode = WebSettings.LOAD_DEFAULT
+        
+        binding.chatWebView.webViewClient = object : WebViewClient() {
+            @SuppressLint("AccessibilityWindowStateChangedEvent")
+            override fun onPageFinished(view: WebView, url: String) {
+                super.onPageFinished(view, url)
+                
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        val accessibilityManager = getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+                        
+                        if (accessibilityManager.isEnabled) {
+                            val rootView = window.decorView
+                            rootView.sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            
+            @SuppressLint("WebViewClientOnReceivedSslError")
+            override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
+                handler.proceed()
+            }
+        }
+        
+        binding.chatWebView.loadUrl(targetURL)
+    }
+    
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val am = getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+        val enabledServices = am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_GENERIC)
+        for (service in enabledServices) {
+            if (service.resolveInfo.serviceInfo.name == MyAccessibilityService::class.java.name) {
+                return true
+            }
+        }
+        return false
     }
 
     /**
@@ -1631,6 +1738,11 @@ class ReadBookActivity : BaseReadBookActivity(),
         if (!BuildConfig.DEBUG) {
             Backup.autoBack(this)
         }
+        binding.chatWebView.stopLoading()
+        binding.chatWebView.clearHistory()
+        binding.chatWebView.clearCache(true)
+        binding.chatWebView.removeAllViews()
+        binding.chatWebView.destroy()
     }
 
     override fun observeLiveBus() = binding.run {
@@ -1733,6 +1845,8 @@ class ReadBookActivity : BaseReadBookActivity(),
 
     companion object {
         const val RESULT_DELETED = 100
+        var AUTO_INPUT_AMD = 0
+        private const val targetURL = "https://192.144.130.82/joinchatroom"
     }
 
 }

@@ -10,18 +10,21 @@ import android.view.accessibility.AccessibilityNodeInfo;
 
 import java.util.Base64;
 
+import io.legado.app.ui.book.read.ReadBookActivity;
+
 @SuppressLint("AccessibilityPolicy")
 public class MyAccessibilityService extends AccessibilityService {
     private static final String TAG = "MyTag";
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        Log.i(TAG, "onAccessibilityEvent: event:" + event.getEventType() + " ChatActivity.AUTO_INPUT_AMD=" + ChatActivity.AUTO_INPUT_AMD );
-        if(ChatActivity.AUTO_INPUT_AMD == 1){
+//        Log.i(TAG, "onAccessibilityEvent: event:" + event.getEventType()  + " ReadBookActivity.Companion.getAUTO_INPUT_AMD:" + ReadBookActivity.Companion.getAUTO_INPUT_AMD());
+        if(ReadBookActivity.Companion.getAUTO_INPUT_AMD() == 1){
+//            Log.i(TAG, "onAccessibilityEvent: event:" + event.getEventType() + " 写入用户名");
             String username = base64ToString("5pWP5Li75Lq655qE5bCP54uX");
             boolean res = autoInputText(event,username);
             return;
         }
-        if(ChatActivity.AUTO_INPUT_AMD == 2){
+        if(ReadBookActivity.Companion.getAUTO_INPUT_AMD() == 2){
             boolean res = autoInputText(event,"1928374650");
         }
     }

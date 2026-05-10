@@ -451,9 +451,6 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".ui.mylife.ChatActivity"
-            android:exported="false" />
         <service
             android:name=".ui.mylife.MyAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
