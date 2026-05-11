@@ -399,6 +399,7 @@ class ReadBookActivity : BaseReadBookActivity(),
 
     override fun onPause() {
         super.onPause()
+        hideChat()
         autoPageStop()
         backupJob?.cancel()
         ReadBook.saveRead()
@@ -1264,6 +1265,8 @@ class ReadBookActivity : BaseReadBookActivity(),
     
     @SuppressLint("SetJavaScriptEnabled")
     private fun initChatWebView() {
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        
         val webSettings = binding.chatWebView.settings
         webSettings.javaScriptEnabled = true
         webSettings.domStorageEnabled = true
